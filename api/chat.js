@@ -178,7 +178,7 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('[LK Chat Error]', err.message);
     return res.status(500).json({
-      error: "I hit a snag! Please try again or reach Lokesh directly at lokeshsoni653@gmail.com"
+      error: "API Error: " + err.message + ". Please verify your API key and check Vercel deployment logs."
     });
   }
 };
