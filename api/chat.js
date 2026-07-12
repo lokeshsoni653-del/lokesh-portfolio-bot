@@ -159,7 +159,14 @@ module.exports = async function handler(req, res) {
     });
 
     if (!apiRes.ok) {
-      throw new Error('Gemini API returned ' + apiRes.status);
+      let errMsg = 'Gemini API returned ' + apiRes.status;
+      try {
+        const errJson = await apiRes.json();
+        if (errJson && errJson.error && errJson.error.message) {
+          errMsg += ': ' + errJson.error.message;
+        }
+      } catch (e) {}
+      throw new Error(errMsg);
     }
 
     const data   = await apiRes.json();
