@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "headers": [
+    {
+      "source": "/api/chat",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    }
+  ]
+}

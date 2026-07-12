@@ -1,0 +1,8 @@
+{
+  "name": "lokesh-portfolio-bot",
+  "version": "1.0.0",
+  "description": "AI chat assistant API for Lokesh Kumar portfolio",
+  "engines": {
+    "node": ">=18"
+  }
+}
