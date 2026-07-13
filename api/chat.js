@@ -233,16 +233,21 @@ module.exports = async function handler(req, res) {
       throw new Error(lastError || 'All Gemini model endpoints failed.');
     }
 
-    // Comprehensive Sanitize for internal reasoning scratchpads
+    // Comprehensive Sanitize for internal reasoning scratchpads (inline or multi-line)
     let cleanAnswer = answer;
-    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Role:') || cleanAnswer.includes('* Option') || cleanAnswer.includes('* Constraint:')) {
-      const lines = cleanAnswer.split('\n');
-      const filtered = lines.filter(function(line) {
-        const trimmed = line.trim();
-        return !trimmed.startsWith('* ') && !trimmed.startsWith('Option ') && !trimmed.startsWith('Draft:');
-      });
-      cleanAnswer = filtered.join('\n').trim();
-      // If filtering emptied it, fallback default response
+    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Role:') || cleanAnswer.includes('* Option') || cleanAnswer.includes('* Goal:') || cleanAnswer.includes('* Constraint')) {
+      const parts = cleanAnswer.split('*');
+      const cleanParts = [];
+      const metaRegex = /^\s*(User asks|Role|Goal|Constraints?|Languages|Data|AI\/NLP|Web|Projects|Context|Option|Draft|Refining|Draft\s*\d+|Refining\s*for)/i;
+
+      for (var i = 0; i < parts.length; i++) {
+        const p = parts[i].trim();
+        if (p && !metaRegex.test(p)) {
+          cleanParts.push(p);
+        }
+      }
+
+      cleanAnswer = cleanParts.join(' ').trim();
       if (!cleanAnswer) {
         cleanAnswer = "I'm here specifically to help you learn about Lokesh's professional projects, skills, and background! Feel free to ask about those.";
       }
