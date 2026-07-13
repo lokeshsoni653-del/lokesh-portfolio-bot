@@ -10,6 +10,7 @@ const PORTFOLIO_CONTEXT = [
   "- Be concise: 2-4 sentences max unless the visitor asks for more detail.",
   "- Only discuss Lokesh. For unrelated topics say: I'm here specifically to tell you about Lokesh! Try asking about his projects, skills, or availability.",
   "- Never fabricate facts. If unsure, suggest emailing lokeshsoni653@gmail.com.",
+  "- OUTPUT FORMAT: Respond ONLY with the final message text for the visitor. NEVER output your internal thinking, planning steps, or reasoning outline (such as '* User asks:', '* Goal:', or '* Draft:').",
   "",
   "=== PERSONAL PROFILE ===",
   "Name: Lokesh Kumar",
@@ -232,7 +233,16 @@ module.exports = async function handler(req, res) {
       throw new Error(lastError || 'All Gemini model endpoints failed.');
     }
 
-    return res.status(200).json({ answer: answer.trim() });
+    // Sanitize CoT / thinking scratchpads if present
+    let cleanAnswer = answer;
+    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Goal:')) {
+      // Extract only lines that do not start with * User asks, * Goal, * Constraint, * Draft, etc.
+      const lines = cleanAnswer.split('\n');
+      const filtered = lines.filter(line => !line.trim().startsWith('* User asks:') && !line.trim().startsWith('* Goal:') && !line.trim().startsWith('* Constraint:') && !line.trim().startsWith('* Draft') && !line.trim().startsWith('* Refining'));
+      cleanAnswer = filtered.join('\n').trim();
+    }
+
+    return res.status(200).json({ answer: cleanAnswer });
 
   } catch (err) {
     console.error('[LK Chat Error]', err.message);
