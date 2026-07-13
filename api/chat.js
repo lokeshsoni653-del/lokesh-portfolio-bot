@@ -142,21 +142,52 @@ module.exports = async function handler(req, res) {
       });
     contents.push({ role: 'user', parts: [{ text: message.trim() }] });
 
-    // Auto-fallback models list: try models in order until one succeeds
-    const MODELS = [
-      'gemini-2.0-flash',
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-1.5-flash-8b'
-    ];
+    // ── Dynamic Model Discovery via ListModels API ─────────────────
+    let modelsToTry = [];
+    try {
+      const listUrl = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + process.env.GEMINI_API_KEY;
+      const listRes = await fetch(listUrl);
+      const listData = await listRes.json();
+
+      if (!listRes.ok) {
+        const listMsg = listData && listData.error && listData.error.message ? listData.error.message : ('HTTP ' + listRes.status);
+        throw new Error('Google Key Authorization Error: ' + listMsg);
+      }
+
+      if (listData && Array.isArray(listData.models)) {
+        const matchingModels = listData.models
+          .filter(function(m) {
+            return m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent');
+          })
+          .map(function(m) { return m.name; });
+
+        if (matchingModels.length > 0) {
+          modelsToTry = matchingModels;
+        }
+      }
+    } catch (listErr) {
+      if (listErr.message && listErr.message.includes('Google Key Authorization Error')) {
+        throw listErr;
+      }
+    }
+
+    if (modelsToTry.length === 0) {
+      modelsToTry = [
+        'models/gemini-1.5-flash',
+        'models/gemini-2.0-flash-exp',
+        'models/gemini-1.5-pro-latest',
+        'models/gemini-1.5-flash-latest',
+        'models/gemini-1.5-pro'
+      ];
+    }
 
     let lastError = null;
     let answer = null;
 
-    for (const model of MODELS) {
+    for (const rawModel of modelsToTry) {
+      const modelPath = rawModel.startsWith('models/') ? rawModel : ('models/' + rawModel);
       try {
-        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + process.env.GEMINI_API_KEY;
+        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/' + modelPath + ':generateContent?key=' + process.env.GEMINI_API_KEY;
         const apiRes = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -183,7 +214,7 @@ module.exports = async function handler(req, res) {
 
           if (answer) break; // Found working model!
         } else {
-          let msg = model + ' returned ' + apiRes.status;
+          let msg = modelPath + ' returned ' + apiRes.status;
           try {
             const errJson = await apiRes.json();
             if (errJson && errJson.error && errJson.error.message) {
