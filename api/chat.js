@@ -142,43 +142,64 @@ module.exports = async function handler(req, res) {
       });
     contents.push({ role: 'user', parts: [{ text: message.trim() }] });
 
-    // Gemini 1.5 Flash API call (v1beta endpoint with system_instruction)
-    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY;
-    const apiRes = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: PORTFOLIO_CONTEXT }] },
-        contents: contents,
-        generationConfig: {
-          maxOutputTokens: 300,
-          temperature: 0.7,
-          topP: 0.9,
-        },
-      }),
-    });
+    // Auto-fallback models list: try models in order until one succeeds
+    const MODELS = [
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash-8b'
+    ];
 
-    if (!apiRes.ok) {
-      let errMsg = 'Gemini API returned ' + apiRes.status;
+    let lastError = null;
+    let answer = null;
+
+    for (const model of MODELS) {
       try {
-        const errJson = await apiRes.json();
-        if (errJson && errJson.error && errJson.error.message) {
-          errMsg += ': ' + errJson.error.message;
+        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + process.env.GEMINI_API_KEY;
+        const apiRes = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: PORTFOLIO_CONTEXT }] },
+            contents: contents,
+            generationConfig: {
+              maxOutputTokens: 300,
+              temperature: 0.7,
+              topP: 0.9,
+            },
+          }),
+        });
+
+        if (apiRes.ok) {
+          const data = await apiRes.json();
+          answer = data
+            && data.candidates
+            && data.candidates[0]
+            && data.candidates[0].content
+            && data.candidates[0].content.parts
+            && data.candidates[0].content.parts[0]
+            && data.candidates[0].content.parts[0].text;
+
+          if (answer) break; // Found working model!
+        } else {
+          let msg = model + ' returned ' + apiRes.status;
+          try {
+            const errJson = await apiRes.json();
+            if (errJson && errJson.error && errJson.error.message) {
+              msg += ': ' + errJson.error.message;
+            }
+          } catch (e) {}
+          lastError = msg;
         }
-      } catch (e) {}
-      throw new Error(errMsg);
+      } catch (err) {
+        lastError = err.message;
+      }
     }
 
-    const data   = await apiRes.json();
-    const answer = data
-      && data.candidates
-      && data.candidates[0]
-      && data.candidates[0].content
-      && data.candidates[0].content.parts
-      && data.candidates[0].content.parts[0]
-      && data.candidates[0].content.parts[0].text;
-
-    if (!answer) throw new Error('Empty Gemini response');
+    if (!answer) {
+      throw new Error(lastError || 'All Gemini model endpoints failed.');
+    }
 
     return res.status(200).json({ answer: answer.trim() });
 
