@@ -8,9 +8,9 @@ const PORTFOLIO_CONTEXT = [
   "",
   "RULES:",
   "- Be concise: 2-4 sentences max unless the visitor asks for more detail.",
-  "- Only discuss Lokesh. For unrelated topics say: I'm here specifically to tell you about Lokesh! Try asking about his projects, skills, or availability.",
+  "- Only discuss Lokesh. For unrelated topics say: I'm here specifically to help you learn about Lokesh! Try asking about his projects, skills, or availability.",
   "- Never fabricate facts. If unsure, suggest emailing lokeshsoni653@gmail.com.",
-  "- OUTPUT FORMAT: Respond ONLY with the final message text for the visitor. NEVER output your internal thinking, planning steps, or reasoning outline (such as '* User asks:', '* Goal:', or '* Draft:').",
+  "- DIRECTIVE: Speak directly to the visitor as Lokesh's portfolio assistant. NEVER include internal notes, thinking steps, or planning bullets (such as '* User asks:', '* Role:', '* Option 1:'). Output ONLY the final response message.",
   "",
   "=== PERSONAL PROFILE ===",
   "Name: Lokesh Kumar",
@@ -196,8 +196,8 @@ module.exports = async function handler(req, res) {
             system_instruction: { parts: [{ text: PORTFOLIO_CONTEXT }] },
             contents: contents,
             generationConfig: {
-              maxOutputTokens: 300,
-              temperature: 0.7,
+              maxOutputTokens: 500,
+              temperature: 0.2,
               topP: 0.9,
             },
           }),
@@ -233,13 +233,19 @@ module.exports = async function handler(req, res) {
       throw new Error(lastError || 'All Gemini model endpoints failed.');
     }
 
-    // Sanitize CoT / thinking scratchpads if present
+    // Comprehensive Sanitize for internal reasoning scratchpads
     let cleanAnswer = answer;
-    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Goal:')) {
-      // Extract only lines that do not start with * User asks, * Goal, * Constraint, * Draft, etc.
+    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Role:') || cleanAnswer.includes('* Option') || cleanAnswer.includes('* Constraint:')) {
       const lines = cleanAnswer.split('\n');
-      const filtered = lines.filter(line => !line.trim().startsWith('* User asks:') && !line.trim().startsWith('* Goal:') && !line.trim().startsWith('* Constraint:') && !line.trim().startsWith('* Draft') && !line.trim().startsWith('* Refining'));
+      const filtered = lines.filter(function(line) {
+        const trimmed = line.trim();
+        return !trimmed.startsWith('* ') && !trimmed.startsWith('Option ') && !trimmed.startsWith('Draft:');
+      });
       cleanAnswer = filtered.join('\n').trim();
+      // If filtering emptied it, fallback default response
+      if (!cleanAnswer) {
+        cleanAnswer = "I'm here specifically to help you learn about Lokesh's professional projects, skills, and background! Feel free to ask about those.";
+      }
     }
 
     return res.status(200).json({ answer: cleanAnswer });
