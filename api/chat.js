@@ -235,10 +235,10 @@ module.exports = async function handler(req, res) {
 
     // Comprehensive Sanitize for internal reasoning scratchpads (inline or multi-line)
     let cleanAnswer = answer;
-    if (cleanAnswer.includes('* User asks:') || cleanAnswer.includes('* Role:') || cleanAnswer.includes('* Option') || cleanAnswer.includes('* Goal:') || cleanAnswer.includes('* Constraint')) {
+    if (cleanAnswer.includes('*')) {
       const parts = cleanAnswer.split('*');
       const cleanParts = [];
-      const metaRegex = /^\s*(User asks|Role|Goal|Constraints?|Languages|Data|AI\/NLP|Web|Projects|Context|Option|Draft|Refining|Draft\s*\d+|Refining\s*for)/i;
+      const metaRegex = /^\s*(User|Goal|Constraints?|Availability|Greeting|Introduction|Call to action|Role|Draft|Refining|Concise\?|Only discusses|No fabrication|Direct to|Option|Note|Step|Analysis|Reasoning)/i;
 
       for (var i = 0; i < parts.length; i++) {
         const p = parts[i].trim();
@@ -247,7 +247,12 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      cleanAnswer = cleanParts.join(' ').trim();
+      if (cleanParts.length > 0) {
+        cleanAnswer = cleanParts.join(' ').trim();
+        // Strip wrapping quotes if AI enclosed the answer in quotes
+        cleanAnswer = cleanAnswer.replace(/^["'\s]+|["'\s]+$/g, '');
+      }
+
       if (!cleanAnswer) {
         cleanAnswer = "I'm here specifically to help you learn about Lokesh's professional projects, skills, and background! Feel free to ask about those.";
       }
