@@ -91,6 +91,8 @@ module.exports = async function handler(req, res) {
 
   // CORS: only accept from your GitHub Pages domain
   const ALLOWED_ORIGINS = [
+    'https://lokeshkumar.me',
+    'https://www.lokeshkumar.me',
     'https://lokeshsoni653-del.github.io',
     'http://localhost:3000',
     'http://127.0.0.1:5500',
